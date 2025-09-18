@@ -7,12 +7,50 @@ const float maxFillFactor = 0.8;
 
 template<typename TK, typename TV>
 struct ChainHashNode {
-   //TODO
+   TK key;
+   TV value;
+   ChainHashNode* next;
+
+   ChainHashNode() : key(TK()), value(TV()), next(nullptr) {}
+   ChainHashNode(TK key, TV value) {
+    this->key = key;
+    this->value = value;
+    next = nullptr;
+   }
 };
 
 template<typename TK, typename TV>
 class ChainHashListIterator {
- 	//TODO
+    private:
+        ChainHashNode<TK,TV>* current;
+    public:
+        ChainHashListIterator(ChainHashNode<TK,TV>* current) {
+            this->current = current;
+        }
+
+        ChainHashListIterator& operator++() {
+            this->current = current->next;
+            return *this;
+        }
+
+        ChainHashListIterator operator++(int) {
+            ChainHashListIterator copia = *this;
+            this->current = current->next;
+            return copia;
+        }
+
+        bool operator!=(ChainHashListIterator otro) {
+            return this->current != otro.current;
+        }
+
+       bool operator==(ChainHashListIterator otro) {
+           return this->current == otro.current;
+       }
+
+       ChainHashNode<TK,TV>& operator*() {
+           return *this->current;
+       }
+
 };
 
 template<typename TK, typename TV>
@@ -59,26 +97,172 @@ public:
 	}	
 	
 	// TODO: implementar los siguientes métodos
-	void set(TK key, TV value);
-	bool remove(TK key);	
-	bool contains(TK key);	
-	Iterator begin(int index);	
-	Iterator end(int index);	
+	void set(TK key, TV value) {
+        size_t hashcode = getHashCode(key);
+        int index = hashcode % capacity;
+
+
+        Node* existe = find(array[index], key);
+        if (existe != nullptr) {
+            existe->value = value;
+        } else {
+            if (array[index] == nullptr) // aumentamos la cantidad de buckets ocupados si esta vacio el bucket
+                usedBuckets += 1;
+
+            Node* newNode = new Node(key, value);
+            newNode->next = array[index];
+            array[index] = newNode;
+            
+            nsize += 1;
+            bucket_sizes[index] += 1;
+        }
+
+
+
+        if (fillFactor() > maxFillFactor || bucket_sizes[index] > maxColision) {
+            rehashing();
+        }
+    };
+
+	bool remove(TK key) {
+        size_t hashcode = getHashCode(key);
+        int index = hashcode % capacity;
+
+        if (array[index] == nullptr)
+            return false; // throw std::runtime_error("No existe");
+        else if (bucket_sizes[index] == 1) {
+            if (array[index]->key != key)
+                return false; // throw std::runtime_error("No existe");
+            delete array[index];
+            array[index] = nullptr;
+            --usedBuckets;
+        } else {
+            Node* current = array[index];
+            while (current->next != nullptr && current->next->key != key)
+                current =  current->next;
+            if (current->next == nullptr)
+                return false; // throw std::runtime_error("No existe");
+            
+            Node* temp = current->next;
+            current->next = current->next->next;
+            delete temp;
+        }
+
+        --bucket_sizes[index];
+        --nsize;
+        return true;
+    }
+
+	bool contains(TK key) {
+        size_t hashcode = getHashCode(key);
+        int index = hashcode % capacity;
+
+        return exists(array[index], key);
+    }	
+
+	Iterator begin(int index) {
+        return Iterator(this->array[index]);
+    }
+    
+	Iterator end(int index) {
+        return Iterator(nullptr);
+    }
+
+    Iterator find(TK key) {
+        size_t hashcode = getHashCode(key);
+        int index = hashcode % capacity;
+        return Iterator(find(array[index], key));
+    }
 
 private:
-	double fillFactor(){
+	double fillFactor() {
 		return (double)this->usedBuckets / (double)this->capacity;
-	}	
+	}
 
-	size_t getHashCode(TK key){
+
+	size_t getHashCode(TK key) {
 		std::hash<TK> ptr_hash;
 		return ptr_hash(key);
 	}
 
 	//TODO: implementar rehashing
-	void rehashing();
+	void rehashing() {
+        int newCapacity = capacity * 2; // nueva capacidad
+
+        Node** newArray = new Node*[newCapacity](); // nuevo array 
+
+        // reiniciando bucket sizes;
+        delete[] bucket_sizes;
+        bucket_sizes = new int[newCapacity]();
+
+        usedBuckets = 0; // reiniciando cantidad de buckets usados
+
+        // reubicando cada ChainHashNode en el nuevo array;
+        for (int i = 0; i< capacity; ++i) {
+
+            Node*& current = array[i];
+
+            while (current != nullptr) {
+                size_t hashcode = getHashCode(current->key);
+                int index = hashcode % newCapacity;
+
+                Node* temp = current;
+
+                // pop_front en bucket de índice i de array
+                current = current->next;
+
+                // push_front en bucket de índice j de newArray
+                temp->next = newArray[index];
+                newArray[index] = temp;
+
+                if (bucket_sizes[index] == 0)
+                   ++usedBuckets;
+
+                bucket_sizes[index] += 1; // aumento cantidad de elementos en el bucket index
+            }
+        }
+
+        delete[] array; // elimino array antiguo
+        array = newArray; // asigno el nuevo array
+        capacity = newCapacity; // actualizo capacidad
+
+    }
+
+    bool exists(Node* node, TK key) {
+        Node* current = node;
+        while (current != nullptr) {
+            if (current->key == key)
+                return true;
+            current =  current->next;
+        }
+        return false;
+    }
+
+    Node* find(Node* node, TK key) {
+        Node* current = node;
+        while (current != nullptr) {
+            if (current->key == key)
+                return current;
+            current = current->next;
+        }
+        return nullptr;
+    }
+
+
 
 public:
 	// TODO: implementar destructor
-	~ChainHash();
+	~ChainHash() {
+        for (int i = 0; i < capacity; ++i) {
+            Node* current = array[i];
+            while (current != nullptr) {
+                Node* temp = current;
+                current = current->next;
+                delete  temp;
+            }
+        }
+
+        delete[] array;
+        delete[] bucket_sizes;
+    };
 };
