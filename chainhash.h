@@ -22,9 +22,9 @@ struct ChainHashNode {
 template<typename TK, typename TV>
 class ChainHashListIterator {
     private:
-        ChainHashNode* current;
+        ChainHashNode<TK,TV>* current;
     public:
-        ChainHashListIterator(ChainHashNode* current) {
+        ChainHashListIterator(ChainHashNode<TK,TV>* current) {
             this->current = current;
         }
 
@@ -39,16 +39,16 @@ class ChainHashListIterator {
             return copia;
         }
 
-        bool operator!=(ChainHashListIterator& otro) {
+        bool operator!=(ChainHashListIterator otro) {
             return this->current != otro.current;
         }
 
-       bool operator==(ChainHashListIterator& otro) {
+       bool operator==(ChainHashListIterator otro) {
            return this->current == otro.current;
        }
 
-       TV& operator*() {
-           return this->current->value;
+       ChainHashNode<TK,TV>& operator*() {
+           return *this->current;
        }
 
 };
@@ -99,7 +99,7 @@ public:
 	// TODO: implementar los siguientes métodos
 	void set(TK key, TV value) {
         size_t hashcode = getHashCode(key);
-        int index = hascode % capacity;
+        int index = hashcode % capacity;
 
 
         Node* existe = find(array[index], key);
@@ -117,26 +117,52 @@ public:
             bucket_sizes[index] += 1;
         }
 
-        if (fillfactor() > maxFillFactor || bucket_sizes[index] > maxColision)
+
+
+        if (fillFactor() > maxFillFactor || bucket_sizes[index] > maxColision) {
             rehashing();
+        }
     };
 
 	bool remove(TK key) {
         size_t hashcode = getHashCode(key);
-        int index = hascode % capacity;
+        int index = hashcode % capacity;
 
-        
+        if (array[index] == nullptr)
+            return false; // throw std::runtime_error("No existe");
+        else if (bucket_sizes[index] == 1) {
+            if (array[index]->key != key)
+                return false; // throw std::runtime_error("No existe");
+            delete array[index];
+            array[index] == nullptr;
+        } else {
+            Node* current = array[index];
+            while (current->next != nullptr && current->next->key != key)
+                current =  current->next;
+            if (current->next == nullptr)
+                return false; // throw std::runtime_error("No existe");
+            
+            Node* temp = current->next;
+            current->next = current->next->next;
+            delete temp;
+        }
 
+        return true;
+    }
 
+	bool contains(TK key) {
+        size_t hashcode = getHashCode(key);
+        int index = hashcode % capacity;
+
+        return exists(array[index], key);
     }	
-	bool contains(TK key);	
 
 	Iterator begin(int index) {
-        return iterator(this->array[index]);
+        return Iterator(this->array[index]);
     }
     
 	Iterator end(int index) {
-        return iterator(nullptr);
+        return Iterator(nullptr);
     }
 
 private:
@@ -157,7 +183,7 @@ private:
         usedBuckets = 0;
 
         int newCapacity = capacity * 2; // nueva capacidad
-        capacity = newCapacity;
+
 
         Node** newArray = new Node*[newCapacity](); // nuevo array 
 
@@ -192,6 +218,7 @@ private:
 
         delete[] array; // elimino array antiguo
         array = newArray; // asigno el nuevo array
+        capacity = newCapacity; // actualizo capacidad
     }
 
     bool exists(Node* node, TK key) {
@@ -219,9 +246,9 @@ private:
 public:
 	// TODO: implementar destructor
 	~ChainHash() {
-        for (Node* i : array) {
-            Node* current = i;
-            while (current ! = nullptr) {
+        for (int i = 0; i < capacity; ++i) {
+            Node* current = array[i];
+            while (current != nullptr) {
                 Node* temp = current;
                 current = current->next;
                 delete  temp;
