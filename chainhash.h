@@ -189,6 +189,8 @@ private:
         delete[] bucket_sizes;
         bucket_sizes = new int[newCapacity]();
 
+        usedBuckets = 0; // reiniciando cantidad de buckets usados
+
         // reubicando cada ChainHashNode en el nuevo array;
         for (int i = 0; i< capacity; ++i) {
 
@@ -207,6 +209,9 @@ private:
                 temp->next = newArray[index];
                 newArray[index] = temp;
 
+                if (bucket_sizes[index] == 0)
+                   ++usedBuckets;
+
                 bucket_sizes[index] += 1; // aumento cantidad de elementos en el bucket index
             }
         }
@@ -215,11 +220,6 @@ private:
         array = newArray; // asigno el nuevo array
         capacity = newCapacity; // actualizo capacidad
 
-        usedBuckets = 0;
-        for (int i = 0; i < newCapacity; ++i) {
-            if (bucket_sizes[i]>0)
-                ++usedBuckets;
-        }
     }
 
     bool exists(Node* node, TK key) {
