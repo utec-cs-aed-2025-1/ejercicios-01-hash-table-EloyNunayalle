@@ -134,7 +134,8 @@ public:
             if (array[index]->key != key)
                 return false; // throw std::runtime_error("No existe");
             delete array[index];
-            array[index] == nullptr;
+            array[index] = nullptr;
+            --usedBuckets;
         } else {
             Node* current = array[index];
             while (current->next != nullptr && current->next->key != key)
@@ -147,6 +148,8 @@ public:
             delete temp;
         }
 
+        --bucket_sizes[index];
+        --nsize;
         return true;
     }
 
@@ -178,16 +181,11 @@ private:
 
 	//TODO: implementar rehashing
 	void rehashing() {
-        // reiniciando atributos
-        nsize = 0;
-        usedBuckets = 0;
-
         int newCapacity = capacity * 2; // nueva capacidad
-
 
         Node** newArray = new Node*[newCapacity](); // nuevo array 
 
-        // reiniciando bucket sizez;
+        // reiniciando bucket sizes;
         delete[] bucket_sizes;
         bucket_sizes = new int[newCapacity]();
 
@@ -195,30 +193,33 @@ private:
         for (int i = 0; i< capacity; ++i) {
 
             Node*& current = array[i];
-            if (current != nullptr) {
-                while (current != nullptr) {
-                    size_t hashcode = getHashCode(current->key); 
-                    int index = hashcode % newCapacity;
-                    
-                    Node* temp = current;
-                    
-                    // pop_front en bucket de índice i de array
-                    current = current->next;
-                    
-                    // push_front en bucket de índice j de newArray
-                    temp->next = newArray[index];
-                    newArray[index] = temp;
 
-                    nsize += 1; // aumento cantidad de elementos <key:value> insertados
-                    bucket_sizes[index] += 1; // aumento cantidad de elementos en el bucket index
-                }
-                usedBuckets += 1;
+            while (current != nullptr) {
+                size_t hashcode = getHashCode(current->key);
+                int index = hashcode % newCapacity;
+
+                Node* temp = current;
+
+                // pop_front en bucket de índice i de array
+                current = current->next;
+
+                // push_front en bucket de índice j de newArray
+                temp->next = newArray[index];
+                newArray[index] = temp;
+
+                bucket_sizes[index] += 1; // aumento cantidad de elementos en el bucket index
             }
         }
 
         delete[] array; // elimino array antiguo
         array = newArray; // asigno el nuevo array
         capacity = newCapacity; // actualizo capacidad
+
+        usedBuckets = 0;
+        for (int i = 0; i < newCapacity; ++i) {
+            if (bucket_sizes[i]>0)
+                ++usedBuckets;
+        }
     }
 
     bool exists(Node* node, TK key) {
