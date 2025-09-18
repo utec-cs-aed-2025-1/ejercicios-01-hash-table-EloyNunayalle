@@ -168,8 +168,14 @@ public:
         return Iterator(nullptr);
     }
 
+    Iterator find(TK key) {
+        size_t hashcode = getHashCode(key);
+        int index = hashcode % capacity;
+        return Iterator(find(array[index], key));
+    }
+
 private:
-	double fillFactor(){
+	double fillFactor() {
 		return (double)this->usedBuckets / (double)this->capacity;
 	}
 
